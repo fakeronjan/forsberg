@@ -30,7 +30,8 @@ import bisect
 import pandas as pd
 from datetime import datetime, timezone, timedelta
 
-from forsberg import CODE_TO_COUNTRY, CONFEDERATION as _CONF_BY_CODE, CANON_CODE
+from forsberg import (CODE_TO_COUNTRY, CONFEDERATION as _CONF_BY_CODE,
+                      CANON_CODE, NAME_HISTORY)
 
 DOCS = "docs"
 DATA = os.path.join(DOCS, "data")
@@ -114,6 +115,39 @@ def canon_name(name):
 def code_to_country(code):
     """IOC code -> display country name (passthrough if unknown)."""
     return CODE_TO_COUNTRY.get(code, code)
+
+
+# Pre-parsed (code -> [(name, start_date, end_date), ...]) for fast lookup.
+_NAME_HISTORY_PARSED = {
+    code: [(n, pd.to_datetime(s).date(), pd.to_datetime(e).date())
+           for n, s, e in entries]
+    for code, entries in NAME_HISTORY.items()
+}
+# canonical name -> list of historical names (for teams_index +
+# per-team JSON `historical_names` field, used by the SPA's team-select
+# dropdown enrichment and team-page header).
+HISTORICAL_NAMES_BY_NAME = {
+    CODE_TO_COUNTRY.get(code, code): [n for n, _, _ in entries]
+    for code, entries in NAME_HISTORY.items()
+}
+# Reverse: canonical display name -> code (used by GOAT / champions builders
+# that work in name-space but need to consult NAME_HISTORY which is keyed
+# by code).
+_NAME_TO_CANON_CODE = {v: k for k, v in CODE_TO_COUNTRY.items()}
+
+
+def display_name_at(code, as_of):
+    """DILLON-style era-aware display name. Returns the historical name in
+    effect on `as_of` (a date or date-like) if NAME_HISTORY covers it; else
+    None (caller falls back to the canonical name)."""
+    hist = _NAME_HISTORY_PARSED.get(code)
+    if not hist:
+        return None
+    d = as_of if hasattr(as_of, "year") else pd.to_datetime(as_of).date()
+    for name, start, end in hist:
+        if start <= d <= end:
+            return name
+    return None
 
 
 def flag_emoji(country):
@@ -410,7 +444,7 @@ all_seasons = sorted(int(s) for s in df["season"].dropna().unique())
 
 
 def team_row(r, as_of):
-    return {
+    out = {
         "rank":                int(r["rank"]) if not pd.isna(r["rank"]) else None,
         "team":                r["name"],
         "flag":                flag_emoji(r["name"]),
@@ -422,6 +456,10 @@ def team_row(r, as_of):
         "tournament_finishes": finishes_for(r["name"], r["season"]),
         "continental_winner":  0,  # no continental tournaments in intl hockey
     }
+    era = display_name_at(r["code"], as_of)
+    if era and era != r["name"]:
+        out["display_name"] = era
+    return out
 
 
 for season in all_seasons:
@@ -506,6 +544,7 @@ for name, year, tour in eligible_podiums:
         continue
     goat_candidates.append({
         "name": name, "year": year, "tournament": tour,
+        "fdate": fdate,
         "rating": float(snap["rating"]),
         "confederation": clean(snap.get("confederation", "")),
     })
@@ -523,7 +562,7 @@ else:
 
 goat_data = []
 for i, (_, r) in enumerate(goat_df.iterrows()):
-    goat_data.append({
+    entry = {
         "rank":                i + 1,
         "team":                r["name"],
         "flag":                flag_emoji(r["name"]),
@@ -532,7 +571,12 @@ for i, (_, r) in enumerate(goat_df.iterrows()):
         "rating":              round2(r["rating"]),
         "tournament_finishes": finishes_for(r["name"], r["year"]),
         "continental_winner":  0,
-    })
+    }
+    era_code = _NAME_TO_CANON_CODE.get(r["name"])
+    era = display_name_at(era_code, r["fdate"]) if era_code and "fdate" in r else None
+    if era and era != r["name"]:
+        entry["display_name"] = era
+    goat_data.append(entry)
 jdump(goat_data, os.path.join(DATA, "goat_teams.json"))
 print(f"  goat_teams.json: {len(goat_data)} teams")
 
@@ -559,7 +603,11 @@ for name in all_names:
     team_slug = slug(name)
     confed = confed_for(name)
     fl = flag_emoji(name)
-    teams_index.append({"name": name, "flag": fl, "confederation": confed, "slug": team_slug})
+    hist_names = HISTORICAL_NAMES_BY_NAME.get(name, [])
+    idx_entry = {"name": name, "flag": fl, "confederation": confed, "slug": team_slug}
+    if hist_names:
+        idx_entry["historical_names"] = hist_names
+    teams_index.append(idx_entry)
 
     seasons = {}
     for season, sdf in tdf.groupby("season"):
@@ -568,8 +616,9 @@ for name in all_names:
         if (name, int(season)) not in played_team_years:
             continue
         fin = finishes_for(name, season)
-        seasons[int(season)] = [
-            {
+        rows = []
+        for _, r in sdf.sort_values("date").iterrows():
+            row = {
                 "date":                str(r["date"]),
                 "rating":              round2(r["rating"]),
                 "rank":                int(r["rank"]) if not pd.isna(r["rank"]) else None,
@@ -582,11 +631,16 @@ for name in all_names:
                 "tournament_finishes": fin,
                 "continental_winner":  0,
             }
-            for _, r in sdf.sort_values("date").iterrows()
-        ]
+            era = display_name_at(r["code"], r["date"])
+            if era and era != name:
+                row["display_name"] = era
+            rows.append(row)
+        seasons[int(season)] = rows
 
-    jdump({"team": name, "flag": fl, "confederation": confed, "seasons": seasons},
-          os.path.join(TEAMS, f"{team_slug}.json"))
+    team_doc = {"team": name, "flag": fl, "confederation": confed, "seasons": seasons}
+    if hist_names:
+        team_doc["historical_names"] = hist_names
+    jdump(team_doc, os.path.join(TEAMS, f"{team_slug}.json"))
 
 teams_index.sort(key=lambda x: x["name"])
 jdump(teams_index, os.path.join(DATA, "teams_index.json"))
@@ -646,7 +700,7 @@ for tour in MEDAL_TOURNAMENTS:
                 return None
             counter[name] = counter.get(name, 0) + 1
             info = edition_team_info(name, _tour, _year)
-            return {
+            block = {
                 "team":          name,
                 "flag":          flag_emoji(name),
                 "confederation": info["confederation"],
@@ -656,6 +710,15 @@ for tour in MEDAL_TOURNAMENTS:
                 count_key:       counter[name],
                 "wl":            edition_team_wl(_tour, _year, name),
             }
+            # DILLON era-aware display: a 1985 IIHF WC gold medalist is
+            # canonically Russia, but the team that actually won was the
+            # Soviet Union -- mark display_name so the UI renders era.
+            era_code = _NAME_TO_CANON_CODE.get(name)
+            fdate = tournament_final_date.get((_tour, _year))
+            era = display_name_at(era_code, fdate) if era_code and fdate else None
+            if era and era != name:
+                block["display_name"] = era
+            return block
 
         entries_oldest_first.append({
             "season":     year,

@@ -64,6 +64,36 @@ CANON_CODE = {
     "SVN": "SLO",
     "FR YUGOSLAVIA": "SCG",
     "RUSSIA": "RUS",
+    # Continuity merges per user-locked policy 2026-05-29 (DILLON pattern):
+    # the team's history is unbroken across the rename, with era-aware
+    # display_name applied in generate_data.py (see NAME_HISTORY below).
+    "URS": "RUS",   # Soviet Union  -> Russia (1991 dissolution)
+    "USSR": "RUS",  # Alt-form leaked from infobox auto-curation
+    "EUN": "RUS",   # Unified Team  -> Russia (1992 Albertville Olympics only)
+    "FRG": "GER",   # West Germany  -> Germany (1990 reunification, the DEB
+                    # federation continued as unified Germany)
+    # NOT merged (per Q2/Q3 policy): Czechoslovakia (TCH), East Germany (GDR),
+    # Yugoslavia (YUG), Serbia-Montenegro variants -- splits/non-continuations
+    # stay as distinct defunct entities.
+}
+
+
+# Date-based name history for the DILLON era-aware display pattern.
+# Maps canonical code -> ordered list of (historical_name, start_iso, end_iso).
+# generate_data.py uses this to set per-row display_name so a 1985 Russia
+# snapshot reads "Soviet Union" inline, but the team page itself is unified.
+NAME_HISTORY = {
+    "RUS": [
+        # USSR dissolution: December 26, 1991.
+        ("Soviet Union", "1900-01-01", "1991-12-25"),
+        # Unified Team competed at 1992 Albertville Olympics (closed Feb 23).
+        # 1992 IIHF WC in May was already Russia.
+        ("Unified Team", "1991-12-26", "1992-02-23"),
+    ],
+    "GER": [
+        # German reunification: October 3, 1990.
+        ("West Germany", "1900-01-01", "1990-10-03"),
+    ],
 }
 
 # Display grouping. IIHF assigns Israel + Kazakhstan to the European pool,

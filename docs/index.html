@@ -806,7 +806,7 @@ function renderStandings() {
     const cRank = confRankMap[t.team] || '-';
     const isStale = !!(prevDate && t.last_match_date && t.last_match_date <= prevDate);
     const slug = nameToSlug[t.team];
-    const cellInner = `<span style="margin-right:4px">${t.flag || ''}</span>${t.team}`;
+    const cellInner = `<span style="margin-right:4px">${t.flag || ''}</span>${t.display_name || t.team}`;
     const teamTd = slug
       ? `<td class="team-cell linked" data-team-slug="${slug}" data-season="${season}">${cellInner}</td>`
       : `<td class="team-cell">${cellInner}</td>`;
@@ -853,7 +853,12 @@ async function loadTeamsIndex() {
     const res = await fetch(`${BASE}/teams_index.json`);
     teamsIndex = await res.json();
     nameToSlug = {};
-    teamsIndex.forEach(t => { nameToSlug[t.name] = t.slug; });
+    teamsIndex.forEach(t => {
+      nameToSlug[t.name] = t.slug;
+      // DILLON pattern: prior names route to the canonical successor (e.g.
+      // typing "Soviet Union" finds Russia).
+      (t.historical_names || []).forEach(h => { nameToSlug[h] = t.slug; });
+    });
   } catch(e) {
     document.getElementById('team-select').innerHTML =
       '<option>Could not load teams</option>';
@@ -867,7 +872,9 @@ function populateTeams(confederation) {
   teamsIndex.filter(t => t.confederation === confederation).forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.slug;
-    opt.textContent = t.flag ? `${t.flag} ${t.name}` : t.name;
+    const priors = (t.historical_names || []);
+    const baseLabel = t.flag ? `${t.flag} ${t.name}` : t.name;
+    opt.textContent = priors.length ? `${baseLabel} (${priors.join(' / ')})` : baseLabel;
     sel.appendChild(opt);
   });
   sel.disabled = false;
@@ -1085,7 +1092,7 @@ function renderLeagueHistory(league) {
     const wlStr = t.wl
       ? `<div style="font-size:10px;color:#999;font-weight:400;line-height:1.2">${t.wl}</div>`
       : '';
-    const cellInner = `<span style="margin-right:4px">${t.flag || ''}</span>${t.team}${countStr}${wlStr}`;
+    const cellInner = `<span style="margin-right:4px">${t.flag || ''}</span>${t.display_name || t.team}${countStr}${wlStr}`;
     if (preRated) {
       return `
         <td class="${bg} team-cell" style="white-space:nowrap">${cellInner}</td>
@@ -1177,7 +1184,7 @@ function renderGoat() {
 
   const rows = teams.map(t => {
     const slug = nameToSlug[t.team];
-    const cellInner = `<span style="margin-right:4px">${t.flag || ''}</span>${t.team}`;
+    const cellInner = `<span style="margin-right:4px">${t.flag || ''}</span>${t.display_name || t.team}`;
     const teamTd = slug
       ? `<td class="team-cell linked" data-team-slug="${slug}" data-season="${t.season}">${cellInner}</td>`
       : `<td class="team-cell">${cellInner}</td>`;
