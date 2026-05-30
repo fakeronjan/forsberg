@@ -1,9 +1,9 @@
 # ============================================================
 # FORSBERG - International Men's Ice Hockey Power Ratings
-# Massey-style weighted-least-squares rolling rating engine.
+# fakeronjan WLS weighted-least-squares rolling rating engine.
 #
 # Cloned from CARMELO (intl basketball), which itself cloned the DUNCAN solver:
-# same WLS Massey solver, linear recency decay across a FIXED CALENDAR-TIME
+# same WLS fakeronjan WLS solver, linear recency decay across a FIXED CALENDAR-TIME
 # window, sign-preserving margin-cap transform, zero-sum constraint via a
 # high-weight extra row.
 #
@@ -142,7 +142,7 @@ RATINGS_CSV = "forsberg_ratings.csv"
 
 
 # ============================================================
-# MASSEY WLS SOLVER  (same math as CARMELO/DUNCAN)
+# FAKERONJAN WLS SOLVER  (same math as CARMELO/DUNCAN)
 # ============================================================
 
 def _apply_margin_transform(margin, transform, cap):
@@ -156,8 +156,8 @@ def _apply_margin_transform(margin, transform, cap):
     raise ValueError(f"Unknown MARGIN_TRANSFORM: {transform}")
 
 
-def _solve_massey(window_df):
-    """WLS Massey solve on one rolling window. X has +1 home / -1 road, y is
+def _solve_wls(window_df):
+    """WLS fakeronjan WLS solve on one rolling window. X has +1 home / -1 road, y is
     transformed (HCA-adjusted) home margin, W = recency x tier. Zero-sum
     constraint via a high-weight extra row. WLS via sqrt(w) row-scaling ->
     ordinary lstsq."""
@@ -263,7 +263,7 @@ def compute_ratings(df):
         if len(window) < 10:
             continue
 
-        ranked = _solve_massey(window)
+        ranked = _solve_wls(window)
         if ranked["rating"].isna().any() or np.isinf(ranked["rating"]).any():
             continue
 
