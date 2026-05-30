@@ -69,7 +69,7 @@ CANON_CODE = {
 # Display grouping. IIHF assigns Israel + Kazakhstan to the European pool,
 # but for fan-facing geography we keep them in Asia / Europe respectively.
 CONFEDERATION = {
-    "USA": "North America", "CAN": "North America", "MEX": "North America",
+    "USA": "Americas", "CAN": "Americas", "MEX": "Americas",
     "RUS": "Europe", "URS": "Europe",
     "SWE": "Europe", "FIN": "Europe", "CZE": "Europe", "TCH": "Europe",
     "SVK": "Europe", "GER": "Europe", "FRG": "Europe", "GDR": "Europe",
