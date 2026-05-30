@@ -127,7 +127,11 @@ WINDOW_DAYS = int(WINDOW_YEARS * 365.25)
 RECENCY_FLOOR = 0.15
 
 MARGIN_TRANSFORM = "cap"
-MARGIN_CAP = 5
+# SAKIC's NHL cap=5 was set for tight pro games where 5-goal wins are rare.
+# International hockey has much bigger blowouts (USA / CAN routinely beat
+# tier-3 nations 10+); cap=5 was capping ~20% of games. Raised to 10 per user
+# 2026-05-30 -- caps only the genuine routs (~5%).
+MARGIN_CAP = 10
 
 HOME_COURT_ADJUSTMENT = 0.15  # goals; applied only to non-neutral games
 WEIGHTING_MODE = "wls"
