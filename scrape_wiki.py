@@ -577,3 +577,10 @@ def build_dataset(events, write=True):
         merged.to_csv(ALL_GAMES_CSV, index=False)
         print(f"\nWrote {ALL_GAMES_CSV}: {len(merged)} games total.")
     return merged
+
+
+if __name__ == "__main__":
+    df = build_dataset(EVENTS)
+    if len(df):
+        print(f"\n=== Totals by tournament ===")
+        print(df.groupby("tournament").size().to_string())
