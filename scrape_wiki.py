@@ -279,7 +279,7 @@ def _parse_score(raw):
     """Parse 'A–B' (en-dash or hyphen)."""
     clean = raw.replace("'''", "")
     clean = re.sub(r"\[\[[^\]]*\|", "", clean).replace("[[", "").replace("]]", "")
-    m = re.search(r"(\d+)\s*[–—\-]\s*(\d+)", clean)
+    m = re.search(r"(\d+)\s*[–-\-]\s*(\d+)", clean)
     if not m:
         return None, None
     return int(m.group(1)), int(m.group(2))
@@ -376,7 +376,7 @@ def parse_hockey_boxes(wikitext, tournament, season):
 # games encoded as one line each):  *August 29, Vancouver: Russia 3–5 Canada
 _BULLET_GAME_RE = re.compile(
     r"^\*\s*([A-Z][a-z]+\s+\d{1,2})\s*,\s*[^:]+:\s*"  # *Month DD, City:
-    r"(.+?)\s+(\d+)\s*[–—\-]\s*(\d+)\s+(.+?)\s*$",     # team1 A–B team2
+    r"(.+?)\s+(\d+)\s*[–-\-]\s*(\d+)\s+(.+?)\s*$",     # team1 A–B team2
     re.MULTILINE,
 )
 
@@ -433,7 +433,7 @@ def _clean_team_name(s):
 
 _INDENTED_DATE_RE = re.compile(r"^\*\s*([A-Z][a-z]+\s+\d{1,2})\s*$")
 _INDENTED_GAME_RE = re.compile(
-    r"^\*\*\s*(.+?)\s+(\d+)\s*[–—\-]\s*(\d+)\s+(.+?)\s*$"
+    r"^\*\*\s*(.+?)\s+(\d+)\s*[–-\-]\s*(\d+)\s+(.+?)\s*$"
 )
 
 
