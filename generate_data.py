@@ -587,6 +587,75 @@ print(f"  goat_teams.json: {len(goat_data)} teams")
 # 4) PER-TEAM JSON FILES + teams_index.json
 # ============================================================
 print("Writing per-team JSON files...")
+
+# ── Olympic per-edition record + match list ─────────────────────────────────
+# Combined W-T-L per edition (hockey has tied games; a tie is an equal final
+# score). NOTE: no group/knockout split here - Olympic hockey's old editions
+# used round-robin medal rounds and the 'round' column only tags final/semi/
+# bronze, so a verified split isn't derivable (see FAN_STATUS.md); not
+# fabricating one. Each match line carries the opponent's pre-match rank/rating.
+# games home/road team names are already canonical full names (mapped at load).
+from bisect import bisect_left
+
+_team_snaps = {}
+for _nm, _sub in df[["name", "date", "rank", "rating"]].dropna(subset=["date"]).groupby("name"):
+    _sub = _sub.sort_values("date")
+    _team_snaps[_nm] = (list(_sub["date"]), list(_sub["rank"]), list(_sub["rating"]))
+
+
+def opp_standing(opp, match_date):
+    """Opponent (rank, rating) as of just before match_date; None if unknown."""
+    snap = _team_snaps.get(opp)
+    if not snap:
+        return None
+    dates, ranks, ratings = snap
+    i = bisect_left(dates, match_date)
+    if i == 0:
+        return None
+    rk, rt = ranks[i - 1], ratings[i - 1]
+    if pd.isna(rk) or pd.isna(rt):
+        return None
+    return int(rk), round(float(rt), 2)
+
+
+_oly_team_games = {}
+for _, _g in games[games["tournament"] == "Olympics"].iterrows():
+    if pd.isna(_g["date"]) or pd.isna(_g["home_runs"]) or pd.isna(_g["road_runs"]):
+        continue
+    _yr = int(_g["season"])
+    _hg, _rg = int(_g["home_runs"]), int(_g["road_runs"])
+    _neu = bool(_g.get("neutral"))
+    _oly_team_games.setdefault((_g["home_team"], _yr), []).append(
+        {"date": _g["date"], "gf": _hg, "ga": _rg, "opp": _g["road_team"], "home": True, "neutral": _neu})
+    _oly_team_games.setdefault((_g["road_team"], _yr), []).append(
+        {"date": _g["date"], "gf": _rg, "ga": _hg, "opp": _g["home_team"], "home": False, "neutral": _neu})
+
+_oly_record = {}
+for (_team, _yr), _gl in _oly_team_games.items():
+    _gl.sort(key=lambda m: m["date"])
+    _w = _t = _l = 0
+    _matches = []
+    for _m in _gl:
+        _gf, _ga = _m["gf"], _m["ga"]
+        if _gf > _ga:
+            _letter = "W"; _w += 1
+        elif _gf < _ga:
+            _letter = "L"; _l += 1
+        else:
+            _letter = "T"; _t += 1
+        _venue = " vs. (N) " if _m["neutral"] else (" vs. " if _m["home"] else " @ ")
+        _st = opp_standing(_m["opp"], _m["date"])
+        _matches.append({"s": f"{_letter} {_gf}-{_ga}{_venue}{_m['opp']}",
+                         "r": _st[0] if _st else None, "g": _st[1] if _st else None})
+    _oly_record[(_team, _yr)] = {"w": _w, "t": _t, "l": _l, "matches": _matches}
+
+
+def oly_record(name, season):
+    if pd.isna(season):
+        return None
+    return _oly_record.get((name, int(season)))
+
+
 team_data = df[(df["is_game_day"] == 1) | (df["is_end_of_season"] == 1) |
                (df["is_year_anchor"] == 1)].copy()
 team_data = team_data.sort_values(["name", "date"])
@@ -637,6 +706,18 @@ for name in all_names:
             if era and era != name:
                 row["display_name"] = era
             rows.append(row)
+        # Attach the Olympic edition record (the row the Olympics view filters
+        # on): completed editions to the 'End of Olympic hockey' anchor,
+        # in-progress to the latest snapshot.
+        _oly_rec = oly_record(name, season)
+        if _oly_rec and rows:
+            _anchors = [row for row in rows if row["year_anchor_label"] == "End of Olympic hockey"]
+            if _anchors:
+                for row in _anchors:
+                    row["oly_record"] = _oly_rec
+            else:
+                rows[-1]["oly_record"] = _oly_rec
+                rows[-1]["oly_in_progress"] = 1
         seasons[int(season)] = rows
 
     team_doc = {"team": name, "flag": fl, "confederation": confed, "seasons": seasons}
