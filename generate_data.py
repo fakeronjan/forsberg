@@ -645,7 +645,7 @@ for (_team, _yr), _gl in _oly_team_games.items():
             _letter = "T"; _t += 1
         _venue = " vs. (N) " if _m["neutral"] else (" vs. " if _m["home"] else " @ ")
         _st = opp_standing(_m["opp"], _m["date"])
-        _matches.append({"s": f"{_letter} {_gf}-{_ga}{_venue}{_m['opp']}",
+        _matches.append({"s": f"{_letter} {_gf}-{_ga}{_venue}{display_name_at(_NAME_TO_CANON_CODE.get(_m['opp']), _m['date']) or _m['opp']}",
                          "r": _st[0] if _st else None, "g": _st[1] if _st else None})
     _oly_record[(_team, _yr)] = {"w": _w, "t": _t, "l": _l, "matches": _matches}
 
