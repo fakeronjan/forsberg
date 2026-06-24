@@ -596,7 +596,7 @@ print("Writing per-team JSON files...")
 # bronze, so a verified split isn't derivable (see FAN_STATUS.md); not
 # fabricating one. Each match line carries the opponent's pre-match rank/rating.
 # games home/road team names are already canonical full names (mapped at load).
-from bisect import bisect_left
+from bisect import bisect_left, bisect_right
 
 _team_snaps = {}
 for _nm, _sub in df[["name", "date", "rank", "rating"]].dropna(subset=["date"]).groupby("name"):
@@ -604,19 +604,27 @@ for _nm, _sub in df[["name", "date", "rank", "rating"]].dropna(subset=["date"]).
     _team_snaps[_nm] = (list(_sub["date"]), list(_sub["rank"]), list(_sub["rating"]))
 
 
-def opp_standing(opp, match_date):
-    """Opponent (rank, rating) as of just before match_date; None if unknown."""
-    snap = _team_snaps.get(opp)
+def country_standing(country, match_date, inclusive=False):
+    """A country's (rank, rating) relative to match_date; None if unknown.
+    inclusive=False -> latest snapshot strictly BEFORE the date (going-in value);
+    inclusive=True  -> latest snapshot ON or before the date (the game-day update,
+    i.e. the post-game value once that day's result is baked in)."""
+    snap = _team_snaps.get(country)
     if not snap:
         return None
     dates, ranks, ratings = snap
-    i = bisect_left(dates, match_date)
+    i = bisect_right(dates, match_date) if inclusive else bisect_left(dates, match_date)
     if i == 0:
         return None
     rk, rt = ranks[i - 1], ratings[i - 1]
     if pd.isna(rk) or pd.isna(rt):
         return None
     return int(rk), round(float(rt), 2)
+
+
+def opp_standing(opp, match_date):
+    """Opponent (rank, rating) as of just before match_date; None if unknown."""
+    return country_standing(opp, match_date, inclusive=False)
 
 
 _oly_team_games = {}
@@ -647,8 +655,21 @@ for (_team, _yr), _gl in _oly_team_games.items():
         _venue = " vs. (N) " if _m["neutral"] else (" vs. " if _m["home"] else " @ ")
         _st = opp_standing(_m["opp"], _m["date"])
         _matches.append({"s": f"{_letter} {_gf}-{_ga}{_venue}{display_name_at(_NAME_TO_CANON_CODE.get(_m['opp']), _m['date']) or _m['opp']}",
-                         "r": _st[0] if _st else None, "g": _st[1] if _st else None})
-    _oly_record[(_team, _yr)] = {"w": _w, "t": _t, "l": _l, "matches": _matches}
+                         "r": _st[0] if _st else None, "g": _st[1] if _st else None,
+                         "d": f"{_m['date'].month:02d}-{_m['date'].day:02d}"})
+    # The selected team's OWN rank/rating walk across the edition: N+1 boundary
+    # standings in date order - index 0 is pre-tournament (strictly before the
+    # first game), index i+1 is the post-game standing after game i. Mirrors
+    # 'matches' so the frontend can render an offset stairstep beside it; the
+    # final entry equals the end-of-tournament headline rating. {r, g} = rank,
+    # rating (None,None when no snapshot exists, e.g. a country's Olympic debut).
+    _walk = []
+    _pre = country_standing(_team, _gl[0]["date"], inclusive=False)
+    _walk.append({"r": _pre[0], "g": _pre[1]} if _pre else {"r": None, "g": None})
+    for _m in _gl:
+        _st = country_standing(_team, _m["date"], inclusive=True)
+        _walk.append({"r": _st[0], "g": _st[1]} if _st else {"r": None, "g": None})
+    _oly_record[(_team, _yr)] = {"w": _w, "t": _t, "l": _l, "matches": _matches, "team_walk": _walk}
 
 
 def oly_record(name, season):
