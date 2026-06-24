@@ -257,7 +257,8 @@ for _, g in games.sort_values("date").iterrows():
         (g["road_team"], g["home_team"], g["road_runs"], g["home_runs"]),
     ):
         wl = "W" if rs > oruns else "L"
-        txt = f"{wl} {int(rs)}-{int(oruns)} vs. {opp} ({g['tournament']})"
+        opp_disp = display_name_at(_NAME_TO_CANON_CODE.get(opp), g["date"]) or opp
+        txt = f"{wl} {int(rs)}-{int(oruns)} vs. {opp_disp} ({g['tournament']})"
         team_games.setdefault(team, []).append((g["date"], txt))
 
 
