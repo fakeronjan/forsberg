@@ -1117,6 +1117,7 @@ date,tournament,season,road_team,road_runs,home_team,home_runs,round,tier,neutra
 1987-09-13,Canada Cup,1987,CAN,6,URS,5,final,1.5,False
 1987-09-15,Canada Cup,1987,CAN,6,URS,5,final,1.5,False
 1988-02-13,Olympics,1988,FRG,2,TCH,1,,1.5,True
+1988-02-13,Olympics,1988,URS,5,NOR,1,,1.5,True
 1988-02-13,Olympics,1988,URS,5,NOR,0,,1.5,True
 1988-02-13,Olympics,1988,USA,10,AUT,6,,1.5,True
 1988-02-14,Olympics,1988,CAN,1,POL,0,,1.5,True
