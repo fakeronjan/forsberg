@@ -2,7 +2,7 @@ name: Update FORSBERG Ratings
 
 on:
   schedule:
-    - cron: '1 10 * * *'  # 10:01 UTC daily - Wikipedia source, not rate-limited
+    - cron: '1 13 * * *'  # backstop, 13:01 UTC. The droplet (157.245.209.249) dispatches this at 10:01 UTC; GitHub's own cron starts hours late, see /opt/fleet-dispatch there
   workflow_dispatch:
 
 permissions:
